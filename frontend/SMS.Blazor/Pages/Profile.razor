@@ -1,0 +1,97 @@
+@page "/profile"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+<PageTitle>Profile - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">My Profile</MudText>
+
+<AuthorizeView Roles="Admin">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h6">Admin Account</MudText>
+        <MudText><strong>Username:</strong> @_username</MudText>
+        <MudText><strong>Role:</strong> Admin</MudText>
+    </MudPaper>
+</AuthorizeView>
+
+<AuthorizeView Roles="Teacher">
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h6">Teacher Account</MudText>
+        <MudText><strong>Username:</strong> @_username</MudText>
+        <MudText><strong>Role:</strong> Teacher</MudText>
+    </MudPaper>
+</AuthorizeView>
+
+<AuthorizeView Roles="Student">
+    @if (_studentDetail != null)
+    {
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudGrid>
+                <MudItem xs="12" md="3">
+                    @if (!string.IsNullOrEmpty(_studentDetail.PhotoUrl))
+                    {
+                        <MudAvatar Size="Size.Large" Style="width:120px;height:120px;">
+                            <MudImage Src="@_studentDetail.PhotoUrl" />
+                        </MudAvatar>
+                    }
+                    else
+                    {
+                        <MudAvatar Size="Size.Large" Color="Color.Primary" Style="width:120px;height:120px;">
+                            @_studentDetail.FullName.Substring(0, 1)
+                        </MudAvatar>
+                    }
+                </MudItem>
+                <MudItem xs="12" md="9">
+                    <MudText Typo="Typo.h6">@_studentDetail.FullName</MudText>
+                    <MudText><strong>Date of Birth:</strong> @_studentDetail.DateOfBirth</MudText>
+                    <MudText><strong>Address:</strong> @_studentDetail.Address</MudText>
+                    <MudText><strong>Enrollment Year:</strong> @_studentDetail.EnrollmentYear</MudText>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        @if (_studentDetail.Enrollments.Count > 0)
+        {
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Enrollment History</MudText>
+        <MudTable Items="@_studentDetail.Enrollments" Hover="true" Elevation="2">
+                <HeaderContent>
+                    <MudTh>Class</MudTh>
+                    <MudTh>Academic Year</MudTh>
+                    <MudTh>Enrolled At</MudTh>
+                </HeaderContent>
+                <RowTemplate Context="enrollment">
+                    <MudTd>@enrollment.ClassName</MudTd>
+                    <MudTd>@enrollment.AcademicYearName</MudTd>
+                    <MudTd>@enrollment.EnrolledAt.ToString("d")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">Loading profile...</MudAlert>
+    }
+</AuthorizeView>
+
+<AuthorizeView Roles="Teacher,Student">
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Change Password</MudText>
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_currentPassword" Label="Old Password" InputType="InputType.Password" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_newPassword" Label="New Password" InputType="InputType.Password" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="_confirmNewPassword" Label="Confirm New Password" InputType="InputType.Password" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="12">
+                <MudText Typo="Typo.caption">Password must be at least 8 characters and include 1 uppercase letter and 1 number.</MudText>
+            </MudItem>
+            <MudItem xs="12" md="4" Class="d-flex align-end">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@ChangePassword">Change Password</MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</AuthorizeView>
+

@@ -1,0 +1,212 @@
+@page "/admin/classes/{Id:guid}/subjects"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.SubjectHttpService SubjectService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Manage Subjects - SMS</PageTitle>
+
+<MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+           OnClick="@(() => Navigation.NavigateTo($"/admin/classes/{Id}"))">
+    Back to Class
+</MudButton>
+
+<MudText Typo="Typo.h4" Class="mb-4 mt-2">Manage Subjects — @_className</MudText>
+
+<!-- Create Subject -->
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-2">Add Subject</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="8">
+            <MudTextField @bind-Value="_newSubjectName" Label="Subject Name" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="4" Class="d-flex align-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@CreateSubject">Add Subject</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_subjects != null)
+{
+    @foreach (var subject in _subjects)
+    {
+        <MudPaper Elevation="2" Class="pa-4 mb-4">
+            <div class="d-flex justify-space-between align-center mb-2">
+                <MudText Typo="Typo.h6">@subject.Name</MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                               OnClick="@(() => DeleteSubject(subject.Id, subject.Name))" />
+            </div>
+
+            <!-- Grade Categories -->
+            @if (subject.GradeCategories.Count > 0)
+            {
+                <MudSimpleTable Hover="true" Class="mb-2">
+                    <thead>
+                        <tr><th>Category</th><th>Weight (%)</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cat in subject.GradeCategories)
+                        {
+                            <tr>
+                                <td>@cat.Name</td>
+                                <td>@cat.Weight%</td>
+                                <td>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                                    OnClick="@(() => DeleteCategory(subject.Id, cat.Id, cat.Name))" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+
+                <MudText Typo="Typo.caption">
+                    Total Weight: @subject.GradeCategories.Sum(c => c.Weight)%
+                    @if (subject.GradeCategories.Sum(c => c.Weight) != 100)
+                    {
+                        <MudChip T="string" Color="Color.Warning" Size="Size.Small" Class="ml-2">Must equal 100%</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Class="ml-2">Valid</MudChip>
+                    }
+                </MudText>
+            }
+
+            <!-- Add Category -->
+            <MudGrid Class="mt-2">
+                <MudItem xs="5">
+                    <MudTextField @bind-Value="_newCategoryName" Label="Category Name" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="3">
+                    <MudNumericField @bind-Value="_newCategoryWeight" Label="Weight %" Variant="Variant.Outlined" Min="1" Max="100" T="decimal" />
+                </MudItem>
+                <MudItem xs="4" Class="d-flex align-end">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => AddCategory(subject.Id))">Add Category</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private string _className = string.Empty;
+    private List<SubjectDto>? _subjects;
+    private string _newSubjectName = string.Empty;
+    private string _newCategoryName = string.Empty;
+    private decimal _newCategoryWeight = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var classResult = await ClassService.GetByIdAsync(Id);
+        if (classResult?.Data != null)
+        {
+            _className = classResult.Data.Name;
+        }
+        await LoadSubjects();
+    }
+
+    private async Task LoadSubjects()
+    {
+        var result = await SubjectService.GetAllAsync(Id);
+        if (result?.Data != null)
+        {
+            _subjects = new List<SubjectDto>();
+            foreach (var s in result.Data)
+            {
+                var detail = await SubjectService.GetByIdAsync(s.Id);
+                if (detail?.Data != null)
+                {
+                    _subjects.Add(detail.Data);
+                }
+            }
+        }
+    }
+
+    private async Task CreateSubject()
+    {
+        if (string.IsNullOrEmpty(_newSubjectName)) return;
+
+        var dto = new CreateSubjectDto
+        {
+            Name = _newSubjectName,
+            ClassId = Id
+        };
+
+        var result = await SubjectService.CreateAsync(dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Subject created!", Severity.Success);
+            _newSubjectName = string.Empty;
+            await LoadSubjects();
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed to create subject", Severity.Error);
+        }
+    }
+
+    private async Task DeleteSubject(Guid subjectId, string subjectName)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Confirm Deletion",
+            $"Are you sure you want to delete subject '{subjectName}'?",
+            yesText: "Yes",
+            cancelText: "No");
+
+        if (confirmed != true) return;
+
+        var result = await SubjectService.DeleteAsync(subjectId);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Subject deleted", Severity.Success);
+            await LoadSubjects();
+        }
+    }
+
+    private async Task AddCategory(Guid subjectId)
+    {
+        if (string.IsNullOrEmpty(_newCategoryName) || _newCategoryWeight <= 0) return;
+
+        var dto = new CreateGradeCategoryDto
+        {
+            Name = _newCategoryName,
+            Weight = _newCategoryWeight
+        };
+
+        var result = await SubjectService.CreateCategoryAsync(subjectId, dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Category added!", Severity.Success);
+            _newCategoryName = string.Empty;
+            _newCategoryWeight = 0;
+            await LoadSubjects();
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed to add category", Severity.Error);
+        }
+    }
+
+    private async Task DeleteCategory(Guid subjectId, Guid categoryId, string categoryName)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Confirm Deletion",
+            $"Are you sure you want to delete category '{categoryName}'?",
+            yesText: "Yes",
+            cancelText: "No");
+
+        if (confirmed != true) return;
+
+        var result = await SubjectService.DeleteCategoryAsync(subjectId, categoryId);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Category deleted", Severity.Success);
+            await LoadSubjects();
+        }
+    }
+}

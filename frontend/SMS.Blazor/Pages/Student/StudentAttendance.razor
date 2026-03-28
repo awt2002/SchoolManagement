@@ -1,0 +1,55 @@
+@page "/student/attendance"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Student")]
+@inject SMS.Blazor.Services.AttendanceHttpService AttendanceService
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+
+<PageTitle>My Attendance - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">My Attendance</MudText>
+
+@if (_summary != null)
+{
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Warning">@_summary.TotalAbsences</MudText>
+        <MudText Typo="Typo.body1" Align="Align.Center">Total Absences This Year</MudText>
+    </MudPaper>
+
+    @if (_summary.AbsenceDates.Count > 0)
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">Absence Dates</MudText>
+        <MudTable Items="@_summary.AbsenceDates" Hover="true" Elevation="2">
+            <HeaderContent>
+                <MudTh>Date</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Success">No absences recorded. Great job!</MudAlert>
+    }
+}
+else
+{
+    <MudAlert Severity="Severity.Info">Loading attendance...</MudAlert>
+}
+
+@code {
+    private AttendanceSummaryDto? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var profileResult = await StudentService.GetMyProfileAsync();
+            if (profileResult?.Data != null)
+            {
+                var result = await AttendanceService.GetStudentSummaryAsync(profileResult.Data.Id);
+                _summary = result?.Data;
+            }
+        }
+        catch { }
+    }
+}

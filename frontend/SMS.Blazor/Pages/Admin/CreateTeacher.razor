@@ -1,0 +1,65 @@
+@page "/admin/teachers/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Teacher - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Create Teacher</MudText>
+
+<MudPaper Elevation="2" Class="pa-6">
+    
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.FullName" Label="Full Name" Variant="Variant.Outlined" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.Username" Label="Username" Variant="Variant.Outlined" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.Email" Label="Email" Variant="Variant.Outlined" Required="true"
+                          InputType="InputType.Email" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.PhoneNumber" Label="Phone Number" Variant="Variant.Outlined" />
+        </MudItem>
+    </MudGrid>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@HandleSubmit">
+        Create Teacher
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" Class="mt-4 ml-2"
+               OnClick="@(() => Navigation.NavigateTo("/admin/teachers"))">Cancel</MudButton>
+</MudPaper>
+
+@code {
+    private CreateTeacherDto _dto = new();
+
+    private async Task HandleSubmit()
+    {
+        if (!System.Net.Mail.MailAddress.TryCreate(_dto.Email, out _))
+        {
+            Snackbar.Add("Please enter a valid email address.", Severity.Error);
+            return;
+        }
+
+        _dto.Password = "Teacher123";
+        _dto.ClassId = null;
+        var result = await TeacherService.CreateAsync(_dto);
+
+        if (result?.Success == true)
+        {
+            var username = result.Data?.Username ?? _dto.Username;
+            Snackbar.Add($"Teacher created. Username: {username}, Password: Teacher123. Welcome email sent.", Severity.Success);
+            Navigation.NavigateTo("/admin/teachers");
+        }
+        else
+        {
+            var msg = result?.Message ?? "Failed";
+            if (result?.Errors?.Count > 0)
+                msg = string.Join(", ", result.Errors);
+            Snackbar.Add(msg, Severity.Error);
+        }
+    }
+}

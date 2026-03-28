@@ -1,0 +1,88 @@
+@page "/login"
+@layout SMS.Blazor.Layout.MainLayout
+@inject SMS.Blazor.Services.AuthHttpService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Login - SMS</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center" Style="min-height: 80vh;">
+    <MudPaper Elevation="3" Class="pa-8 mx-auto" Style="width: 100%; max-width: 420px;">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">School Management System</MudText>
+        <MudText Typo="Typo.h6" Align="Align.Center" Color="Color.Primary" Class="mb-6">Sign In</MudText>
+
+        <MudTextField @bind-Value="_username" Label="Username" Variant="Variant.Outlined"
+                      Class="mb-4" Required="true" OnKeyDown="HandleKeyDown" />
+
+        <MudTextField @bind-Value="_password" Label="Password" Variant="Variant.Outlined"
+                      InputType="InputType.Password" Class="mb-6" Required="true" OnKeyDown="HandleKeyDown" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                   OnClick="@HandleLogin" Disabled="@_loading">
+            @if (_loading)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Login
+        </MudButton>
+
+        <MudButton Variant="Variant.Text" Color="Color.Primary" FullWidth="true" Class="mt-2"
+                   OnClick="@(() => Navigation.NavigateTo("/forgot-password"))">
+            Forgot Password?
+        </MudButton>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_errorMessage</MudAlert>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private string _username = string.Empty;
+    private string _password = string.Empty;
+    private bool _loading;
+    private string _errorMessage = string.Empty;
+
+    private async Task HandleLogin()
+    {
+        _errorMessage = string.Empty;
+        _loading = true;
+
+        try
+        {
+            var dto = new LoginRequestDto
+            {
+                Username = _username,
+                Password = _password
+            };
+
+            var result = await AuthService.LoginAsync(dto);
+
+            if (result != null && result.Success)
+            {
+                Snackbar.Add("Login successful!", Severity.Success);
+                Navigation.NavigateTo("/dashboard");
+            }
+            else
+            {
+                _errorMessage = result?.Message ?? "Login failed";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "An error occurred. Please try again.";
+        }
+
+        _loading = false;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter" && !_loading)
+        {
+            await HandleLogin();
+        }
+    }
+
+}

@@ -1,0 +1,93 @@
+@page "/student/exams/{Id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Student")]
+@inject SMS.Blazor.Services.ExamHttpService ExamService
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+@inject NavigationManager Navigation
+
+<PageTitle>Exam Result - SMS</PageTitle>
+
+<MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+           OnClick="@(() => Navigation.NavigateTo("/student/exams"))">
+    Back to Exams
+</MudButton>
+
+@if (_exam != null)
+{
+    <MudText Typo="Typo.h4" Class="mb-2 mt-2">@_exam.Name</MudText>
+    <MudText Typo="Typo.body1" Class="mb-4">Subject: @_exam.SubjectName — Date: @_exam.ExamDate</MudText>
+
+    @if (_result != null)
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Primary">@_result.Score / @_exam.MaxScore</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Your Score</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Info">@_result.Percentage.ToString("F1")%</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Percentage</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="@(_result.Passed ? Color.Success : Color.Error)">
+                            @(_result.Passed ? "PASS" : "FAIL")
+                        </MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Status</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Secondary">@_result.Average.ToString("F1")</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Average Score</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Elevation="2" Class="pa-4 mt-4">
+            <MudText Typo="Typo.h6">Analytics</MudText>
+            <MudText><strong>Highest Score:</strong> @_result.Highest</MudText>
+            <MudText><strong>Lowest Score:</strong> @_result.Lowest</MudText>
+            <MudText><strong>Passing Threshold:</strong> @_exam.PassingThreshold%</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">No result recorded for this exam yet.</MudAlert>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ExamDto? _exam;
+    private ExamResultDetailDto? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var examResult = await ExamService.GetByIdAsync(Id);
+            _exam = examResult?.Data;
+
+            var profileResult = await StudentService.GetMyProfileAsync();
+            if (profileResult?.Data != null)
+            {
+                var resultResponse = await ExamService.GetStudentResultAsync(Id, profileResult.Data.Id);
+                _result = resultResponse?.Data;
+            }
+        }
+        catch { }
+    }
+}

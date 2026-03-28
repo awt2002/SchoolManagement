@@ -1,0 +1,77 @@
+@page "/admin/students/{Id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+@inject NavigationManager Navigation
+
+<PageTitle>Student Details - SMS</PageTitle>
+
+@if (_student != null)
+{
+    <MudText Typo="Typo.h4" Class="mb-4">@_student.FullName</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="3">
+            @if (!string.IsNullOrEmpty(_student.PhotoUrl))
+            {
+                <MudAvatar Size="Size.Large" Style="width: 150px; height: 150px;">
+                    <MudImage Src="@_student.PhotoUrl" />
+                </MudAvatar>
+            }
+            else
+            {
+                <MudAvatar Size="Size.Large" Color="Color.Primary" Style="width: 150px; height: 150px;">
+                    @_student.FullName.Substring(0, 1).ToUpper()
+                </MudAvatar>
+            }
+        </MudItem>
+        <MudItem xs="12" md="9">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText><strong>Date of Birth:</strong> @_student.DateOfBirth</MudText>
+                <MudText><strong>Address:</strong> @_student.Address</MudText>
+                <MudText><strong>Enrollment Year:</strong> @_student.EnrollmentYear</MudText>
+                <MudText><strong>Status:</strong>
+                    @if (_student.IsActive)
+                    {
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Color="Color.Error" Size="Size.Small">Inactive</MudChip>
+                    }
+                </MudText>
+                <MudText><strong>Parent:</strong> @_student.ParentName (@_student.ParentEmail)</MudText>
+                <MudText><strong>Parent Phone:</strong> @_student.ParentPhone</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Enrollment History</MudText>
+    <MudTable Items="@_student.Enrollments" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Class</MudTh>
+            <MudTh>Academic Year</MudTh>
+            <MudTh>Enrolled At</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.ClassName</MudTd>
+            <MudTd>@context.AcademicYearName</MudTd>
+            <MudTd>@context.EnrolledAt.ToString("g")</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudButton Variant="Variant.Outlined" Class="mt-4"
+               OnClick="@(() => Navigation.NavigateTo($"/admin/students/{Id}/edit"))">Edit</MudButton>
+    <MudButton Variant="Variant.Outlined" Class="mt-4 ml-2"
+               OnClick="@(() => Navigation.NavigateTo("/admin/students"))">Back</MudButton>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private StudentDetailDto? _student;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await StudentService.GetByIdAsync(Id);
+        _student = result?.Data;
+    }
+}

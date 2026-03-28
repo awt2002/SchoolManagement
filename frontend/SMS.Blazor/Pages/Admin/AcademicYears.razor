@@ -1,0 +1,108 @@
+@page "/admin/academic-years"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.AcademicYearHttpService AcademicYearService
+@inject ISnackbar Snackbar
+
+<PageTitle>Academic Years - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Academic Years</MudText>
+
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-2">Create New Academic Year</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudTextField @bind-Value="_newName" Label="Name (e.g., 2026-2027)" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker @bind-Date="_newStartDate" Label="Start Date" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker @bind-Date="_newEndDate" Label="End Date" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="2">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@CreateYear">Create</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@if (_years != null)
+{
+    <MudTable Items="@_years" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Start Date</MudTh>
+            <MudTh>End Date</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.StartDate</MudTd>
+            <MudTd>@context.EndDate</MudTd>
+            <MudTd>
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Default" Size="Size.Small">Inactive</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                @if (!context.IsActive)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                               OnClick="@(() => Activate(context.Id))">Activate</MudButton>
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<AcademicYearDto>? _years;
+    private string _newName = string.Empty;
+    private DateTime? _newStartDate;
+    private DateTime? _newEndDate;
+
+    protected override async Task OnInitializedAsync() { await Load(); }
+
+    private async Task Load()
+    {
+        var result = await AcademicYearService.GetAllAsync();
+        _years = result?.Data;
+    }
+
+    private async Task CreateYear()
+    {
+        if (string.IsNullOrEmpty(_newName) || !_newStartDate.HasValue || !_newEndDate.HasValue) return;
+
+        var dto = new CreateAcademicYearDto
+        {
+            Name = _newName,
+            StartDate = DateOnly.FromDateTime(_newStartDate.Value),
+            EndDate = DateOnly.FromDateTime(_newEndDate.Value)
+        };
+
+        var result = await AcademicYearService.CreateAsync(dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Academic year created!", Severity.Success);
+            _newName = string.Empty;
+            _newStartDate = null;
+            _newEndDate = null;
+            await Load();
+        }
+    }
+
+    private async Task Activate(Guid id)
+    {
+        var result = await AcademicYearService.ActivateAsync(id);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Academic year activated!", Severity.Success);
+            await Load();
+        }
+    }
+}

@@ -1,0 +1,84 @@
+@page "/announcements"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Teacher,Student")]
+@inject SMS.Blazor.Services.AnnouncementHttpService AnnouncementService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@using System.Security.Claims
+
+<PageTitle>Announcements - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Announcements</MudText>
+
+<AuthorizeView Roles="Admin">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-4"
+               OnClick="@(() => Navigation.NavigateTo("/admin/announcements/create"))">
+        New Announcement
+    </MudButton>
+</AuthorizeView>
+
+<AuthorizeView Roles="Teacher">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-4"
+               OnClick="@(() => Navigation.NavigateTo("/teacher/announcements/create"))">
+        New Announcement
+    </MudButton>
+</AuthorizeView>
+
+@if (_announcements != null)
+{
+    <MudList T="AnnouncementDto">
+        @foreach (var a in _announcements)
+        {
+            <MudListItem OnClick="@(() => Navigation.NavigateTo($"/announcements/{a.Id}"))">
+                <div class="d-flex flex-column" style="width:100%">
+                    <div class="d-flex justify-space-between">
+                        <MudText Style="@(a.IsRead ? "" : "font-weight: bold")">@a.Title</MudText>
+                        @if (!a.IsRead)
+                        {
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small">New</MudChip>
+                        }
+                    </div>
+                    <MudText Typo="Typo.caption">By @a.AuthorName — @a.CreatedAt.ToString("g")
+                        @if (!string.IsNullOrEmpty(a.ClassName))
+                        {
+                            <span> — @a.ClassName</span>
+                        }
+                        else
+                        {
+                            <span> — School-Wide</span>
+                        }
+                    </MudText>
+                </div>
+            </MudListItem>
+            <MudDivider />
+        }
+    </MudList>
+
+    <MudPagination Count="@_totalPages" Selected="@_currentPage" SelectedChanged="@OnPageChanged" Class="mt-4" />
+}
+
+@code {
+    private List<AnnouncementDto>? _announcements;
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAnnouncements();
+    }
+
+    private async Task LoadAnnouncements()
+    {
+        var result = await AnnouncementService.GetAllAsync(_currentPage, 10);
+        if (result != null)
+        {
+            _announcements = result.Data;
+            _totalPages = result.TotalPages > 0 ? result.TotalPages : 1;
+        }
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadAnnouncements();
+    }
+}

@@ -1,0 +1,61 @@
+@page "/teacher/my-class"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Teacher")]
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+
+<PageTitle>My Class - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">My Class</MudText>
+
+@if (_classDetail != null)
+{
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6">@_classDetail.Name</MudText>
+        <MudText><strong>Grade Level:</strong> @_classDetail.GradeLevel</MudText>
+        <MudText><strong>Students:</strong> @_classDetail.StudentCount</MudText>
+    </MudPaper>
+
+    <MudText Typo="Typo.h6" Class="mb-2">Students</MudText>
+    <MudTable Items="@_classDetail.Students" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FullName</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Subjects</MudText>
+    <MudTable Items="@_classDetail.Subjects" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Subject</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">You are not assigned to any class.</MudAlert>
+}
+
+@code {
+    private ClassDetailDto? _classDetail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var teacherResult = await TeacherService.GetMeAsync();
+            var teacher = teacherResult?.Data;
+
+            if (teacher?.ClassId != null)
+            {
+                var classResult = await ClassService.GetByIdAsync(teacher.ClassId.Value);
+                _classDetail = classResult?.Data;
+            }
+        }
+        catch { }
+    }
+}

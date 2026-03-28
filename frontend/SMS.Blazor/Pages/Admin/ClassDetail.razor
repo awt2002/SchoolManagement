@@ -1,0 +1,58 @@
+@page "/admin/classes/{Id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject NavigationManager Navigation
+
+<PageTitle>Class Detail - SMS</PageTitle>
+
+@if (_classDetail != null)
+{
+    <MudText Typo="Typo.h4" Class="mb-4">@_classDetail.Name</MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText><strong>Grade Level:</strong> @_classDetail.GradeLevel</MudText>
+                <MudText><strong>Teacher:</strong> @(_classDetail.TeacherName ?? "Not Assigned")</MudText>
+                <MudText><strong>Students:</strong> @_classDetail.StudentCount</MudText>
+                <MudText><strong>Academic Year:</strong> @_classDetail.AcademicYearName</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Enrolled Students</MudText>
+    <MudTable Items="@_classDetail.Students" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FullName</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudText Typo="Typo.h6" Class="mt-6 mb-2">Subjects</MudText>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mb-2"
+               OnClick="@(() => Navigation.NavigateTo($"/admin/classes/{Id}/subjects"))">Manage Subjects</MudButton>
+    <MudTable Items="@_classDetail.Subjects" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Subject</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudButton Variant="Variant.Outlined" Class="mt-4"
+               OnClick="@(() => Navigation.NavigateTo("/admin/classes"))">Back</MudButton>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private ClassDetailDto? _classDetail;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await ClassService.GetByIdAsync(Id);
+        _classDetail = result?.Data;
+    }
+}

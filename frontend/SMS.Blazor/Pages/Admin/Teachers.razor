@@ -1,0 +1,111 @@
+@page "/admin/teachers"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Teachers - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Teachers</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="6" md="4">
+        <MudTextField @bind-Value="_search" Label="Search" Variant="Variant.Outlined"
+                      OnKeyUp="@HandleSearch" Immediate="true" />
+    </MudItem>
+    <MudItem xs="12" sm="3" md="2">
+        <MudSwitch Value="@_includeInactive" Label="Show Inactive" Color="Color.Primary" T="bool"
+                   ValueChanged="@OnIncludeInactiveChanged" />
+    </MudItem>
+    <MudItem xs="12" sm="3" md="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="@(() => Navigation.NavigateTo("/admin/teachers/create"))">Add Teacher</MudButton>
+    </MudItem>
+</MudGrid>
+
+@if (_teachers != null)
+{
+    <MudTable Items="@_teachers" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Assigned Class</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FullName</MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>@(context.AssignedClassName ?? "Not Assigned")</MudTd>
+            <MudTd>
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Inactive</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => Navigation.NavigateTo($"/admin/teachers/{context.Id}/edit"))" />
+                @if (context.IsActive)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                   OnClick="@(() => Deactivate(context.Id, context.FullName))" />
+                }
+                else
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.RestoreFromTrash" Size="Size.Small" Color="Color.Success"
+                                   OnClick="@(() => Reactivate(context.Id))" />
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<TeacherDto>? _teachers;
+    private string _search = string.Empty;
+    private bool _includeInactive;
+
+    protected override async Task OnInitializedAsync() { await LoadData(); }
+
+    private async Task LoadData()
+    {
+        var result = await TeacherService.GetAllAsync(1, 100, _search, _includeInactive, _includeInactive);
+        _teachers = result?.Data;
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e) { await LoadData(); }
+
+    private async Task OnIncludeInactiveChanged(bool value)
+    {
+        _includeInactive = value;
+        await LoadData();
+    }
+
+    private async Task Deactivate(Guid id, string fullName)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Confirm Deactivation",
+            $"Are you sure you want to deactivate teacher '{fullName}'?",
+            yesText: "Yes",
+            cancelText: "No");
+
+        if (confirmed != true) return;
+
+        await TeacherService.DeleteAsync(id);
+        Snackbar.Add("Teacher deactivated", Severity.Success);
+        await LoadData();
+    }
+
+    private async Task Reactivate(Guid id)
+    {
+        await TeacherService.ReactivateAsync(id);
+        Snackbar.Add("Teacher reactivated", Severity.Success);
+        await LoadData();
+    }
+}

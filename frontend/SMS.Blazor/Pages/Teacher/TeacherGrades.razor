@@ -1,0 +1,144 @@
+@page "/teacher/grades"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Teacher")]
+@inject SMS.Blazor.Services.GradeHttpService GradeService
+@inject SMS.Blazor.Services.SubjectHttpService SubjectService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject ISnackbar Snackbar
+
+<PageTitle>Grades - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Manage Grades</MudText>
+
+@if (_classDetail != null)
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" md="6">
+            <MudSelect Value="@_selectedSubjectId" Label="Subject" Variant="Variant.Outlined" T="Guid?" Strict="true" Clearable="true"
+                       ValueChanged="@((Guid? val) => { _selectedSubjectId = val; _ = LoadCategories(); })">
+                @foreach (var s in _classDetail.Subjects)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)s.Id)">@s.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect Value="@_selectedCategoryId" Label="Category" Variant="Variant.Outlined" T="Guid?" Strict="true" Clearable="true"
+                       ValueChanged="@((Guid? val) => { _selectedCategoryId = val; _ = LoadGrades(); })">
+                @if (_categories != null)
+                {
+                    @foreach (var c in _categories)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name (@c.Weight%)</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    @if (_selectedCategoryId.HasValue && _classDetail.Students.Count > 0)
+    {
+        <MudPaper Elevation="2" Class="pa-4">
+            @foreach (var student in _classDetail.Students)
+            {
+                var score = GetStudentScore(student.Id);
+                <MudGrid Class="mb-2" @key="student.Id">
+                    <MudItem xs="6">
+                        <MudText Class="mt-3">@student.FullName</MudText>
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudNumericField @key="student.Id" Value="@score" Label="Score" Variant="Variant.Outlined" Min="0" Max="100" T="decimal"
+                                         ValueChanged="@((decimal val) => SetStudentScore(student.Id, val))" />
+                    </MudItem>
+                </MudGrid>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@SaveGrades">
+                Save Grades
+            </MudButton>
+        </MudPaper>
+    }
+}
+else
+{
+    <MudAlert Severity="Severity.Info">You are not assigned to any class.</MudAlert>
+}
+
+@code {
+    private ClassDetailDto? _classDetail;
+    private Guid _classId;
+    private Guid? _selectedSubjectId;
+    private Guid? _selectedCategoryId;
+    private List<GradeCategoryDto>? _categories;
+    private Dictionary<Guid, decimal> _scores = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var teacherResult = await TeacherService.GetMeAsync();
+            var teacher = teacherResult?.Data;
+
+            if (teacher?.ClassId != null)
+            {
+                _classId = teacher.ClassId.Value;
+                var classResult = await ClassService.GetByIdAsync(_classId);
+                _classDetail = classResult?.Data;
+            }
+        }
+        catch { }
+    }
+
+    private async Task LoadCategories()
+    {
+        if (!_selectedSubjectId.HasValue) return;
+        var result = await SubjectService.GetCategoriesAsync(_selectedSubjectId.Value);
+        _categories = result?.Data;
+        _selectedCategoryId = null;
+        _scores.Clear();
+    }
+
+    private async Task LoadGrades()
+    {
+        if (!_selectedCategoryId.HasValue || !_selectedSubjectId.HasValue) return;
+        _scores.Clear();
+
+        foreach (var student in _classDetail!.Students)
+        {
+            var result = await GradeService.GetAllAsync(_selectedSubjectId.Value, student.Id);
+            var grade = result?.Data?.FirstOrDefault(g => g.GradeCategoryId == _selectedCategoryId.Value);
+            _scores[student.Id] = grade?.Score ?? 0;
+        }
+    }
+
+    private decimal GetStudentScore(Guid studentId)
+    {
+        return _scores.GetValueOrDefault(studentId, 0);
+    }
+
+    private void SetStudentScore(Guid studentId, decimal value)
+    {
+        _scores[studentId] = value;
+    }
+
+    private async Task SaveGrades()
+    {
+        if (!_selectedCategoryId.HasValue) return;
+
+        foreach (var (studentId, score) in _scores)
+        {
+            if (score > 0)
+            {
+                var dto = new CreateGradeDto
+                {
+                    StudentId = studentId,
+                    GradeCategoryId = _selectedCategoryId.Value,
+                    Score = score
+                };
+                await GradeService.CreateOrUpdateAsync(dto);
+            }
+        }
+
+        Snackbar.Add("Grades saved!", Severity.Success);
+    }
+}

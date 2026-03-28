@@ -1,0 +1,57 @@
+@page "/admin/grades/audit"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.GradeHttpService GradeService
+
+<PageTitle>Grade Audit Log - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Grade Audit Log</MudText>
+
+@if (_logs != null)
+{
+    <MudTable Items="@_logs" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Student</MudTh>
+            <MudTh>Subject</MudTh>
+            <MudTh>Category</MudTh>
+            <MudTh>Old Score</MudTh>
+            <MudTh>New Score</MudTh>
+            <MudTh>Changed By</MudTh>
+            <MudTh>Changed At</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.StudentName</MudTd>
+            <MudTd>@context.SubjectName</MudTd>
+            <MudTd>@context.CategoryName</MudTd>
+            <MudTd>@context.OldScore</MudTd>
+            <MudTd>@context.NewScore</MudTd>
+            <MudTd>@context.ChangedBy</MudTd>
+            <MudTd>@context.ChangedAt.ToString("g")</MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudPagination Count="@_totalPages" Selected="@_page" SelectedChanged="@OnPageChanged" Class="mt-4" />
+}
+
+@code {
+    private List<GradeAuditLogDto>? _logs;
+    private int _page = 1;
+    private int _totalPages = 1;
+
+    protected override async Task OnInitializedAsync() { await Load(); }
+
+    private async Task Load()
+    {
+        var result = await GradeService.GetAuditLogAsync(page: _page, pageSize: 20);
+        if (result != null)
+        {
+            _logs = result.Data;
+            _totalPages = result.TotalPages > 0 ? result.TotalPages : 1;
+        }
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _page = page;
+        await Load();
+    }
+}

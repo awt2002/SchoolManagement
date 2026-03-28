@@ -1,0 +1,122 @@
+@page "/admin/students/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.AcademicYearHttpService AcademicYearService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Student - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Enroll New Student</MudText>
+
+<MudPaper Elevation="2" Class="pa-6">
+    
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.FullName" Label="Full Name" Required="true"
+                          Variant="Variant.Outlined" MaxLength="100" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudDatePicker @bind-Date="_dateOfBirth" Label="Date of Birth" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_dto.Address" Label="Address" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect @bind-Value="_dto.ClassId" Label="Class" Variant="Variant.Outlined" T="Guid?" Strict="true">
+                @if (_classes != null)
+                {
+                    @foreach (var c in _classes)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect @bind-Value="_dto.AcademicYearId" Label="Academic Year" Variant="Variant.Outlined" T="Guid?" Strict="true">
+                @if (_academicYears != null)
+                {
+                    @foreach (var y in _academicYears)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)y.Id)">@y.Name @(y.IsActive ? "(Active)" : "")</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.ParentName" Label="Parent/Guardian Name" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.ParentEmail" Label="Parent Email" Variant="Variant.Outlined"
+                          InputType="InputType.Email" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.ParentPhone" Label="Parent Phone Number" Variant="Variant.Outlined"
+                          InputType="InputType.Telephone" />
+        </MudItem>
+    </MudGrid>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@HandleSubmit">
+        Create Student
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" Class="mt-4 ml-2"
+               OnClick="@(() => Navigation.NavigateTo("/admin/students"))">Cancel</MudButton>
+</MudPaper>
+
+@code {
+    private CreateStudentDto _dto = new();
+    private DateTime? _dateOfBirth;
+    private List<ClassDto>? _classes;
+    private List<AcademicYearDto>? _academicYears;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var classResult = await ClassService.GetAllAsync();
+        _classes = classResult?.Data;
+
+        var yearResult = await AcademicYearService.GetAllAsync();
+        _academicYears = yearResult?.Data;
+
+        var activeYear = _academicYears?.FirstOrDefault(y => y.IsActive);
+        if (activeYear != null)
+        {
+            _dto.AcademicYearId = activeYear.Id;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_dateOfBirth.HasValue)
+        {
+            _dto.DateOfBirth = DateOnly.FromDateTime(_dateOfBirth.Value);
+        }
+
+        if (!_dto.ClassId.HasValue || !_dto.AcademicYearId.HasValue)
+        {
+            Snackbar.Add("Please select both class and academic year.", Severity.Error);
+            return;
+        }
+
+        var result = await StudentService.CreateAsync(_dto);
+
+        if (result?.Success == true)
+        {
+            var username = result.Data?.Username;
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                Snackbar.Add($"Student created. Username: {username}, Password: Student123. Welcome email sent.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Student created successfully!", Severity.Success);
+            }
+            Navigation.NavigateTo("/admin/students");
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed to create student", Severity.Error);
+        }
+    }
+}

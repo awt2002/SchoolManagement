@@ -1,0 +1,51 @@
+@page "/announcements/{Id:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin,Teacher,Student")]
+@inject SMS.Blazor.Services.AnnouncementHttpService AnnouncementService
+@inject NavigationManager Navigation
+
+<PageTitle>Announcement - SMS</PageTitle>
+
+@if (_announcement != null)
+{
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => Navigation.NavigateTo("/announcements"))">
+        Back to Announcements
+    </MudButton>
+
+    <MudPaper Elevation="2" Class="pa-6 mt-4">
+        <MudText Typo="Typo.h4" Class="mb-2">@_announcement.Title</MudText>
+        <MudText Typo="Typo.caption" Class="mb-4">
+            By @_announcement.AuthorName — @_announcement.CreatedAt.ToString("g")
+            @if (!string.IsNullOrEmpty(_announcement.ClassName))
+            {
+                <span> — @_announcement.ClassName</span>
+            }
+            else
+            {
+                <span> — School-Wide</span>
+            }
+        </MudText>
+        <MudDivider Class="mb-4" />
+        <MudText Style="white-space: pre-wrap;">@_announcement.Body</MudText>
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">Loading announcement...</MudAlert>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private AnnouncementDto? _announcement;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await AnnouncementService.GetByIdAsync(Id);
+        if (result?.Data != null)
+        {
+            _announcement = result.Data;
+            // Mark as read
+            await AnnouncementService.MarkAsReadAsync(Id);
+        }
+    }
+}

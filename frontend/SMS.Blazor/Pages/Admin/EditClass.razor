@@ -1,0 +1,112 @@
+@page "/admin/classes/{Id:guid}/edit"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject SMS.Blazor.Services.AcademicYearHttpService AcademicYearService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Edit Class - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Edit Class</MudText>
+
+@if (_dto != null)
+{
+    <MudPaper Elevation="2" Class="pa-6">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.Name" Label="Class Name" Variant="Variant.Outlined" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudNumericField @bind-Value="_dto.GradeLevel" Label="Grade Level (1-12)"
+                                 Variant="Variant.Outlined" Min="1" Max="12" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_selectedTeacherId" Label="Teacher (Optional)" Variant="Variant.Outlined"
+                           T="Guid?" Clearable="true">
+                    @if (_teachers != null)
+                    {
+                        @foreach (var t in _teachers)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)t.Id)">@t.FullName</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_dto.AcademicYearId" Label="Academic Year" Variant="Variant.Outlined" T="Guid" Strict="true">
+                    @if (_years != null)
+                    {
+                        @foreach (var y in _years)
+                        {
+                            <MudSelectItem T="Guid" Value="@y.Id">@y.Name @(y.IsActive ? "(Active)" : "")</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@HandleSubmit">
+            Save Changes
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Class="mt-4 ml-2"
+                   OnClick="@(() => Navigation.NavigateTo("/admin/classes"))">Cancel</MudButton>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private UpdateClassDto? _dto;
+    private Guid? _selectedTeacherId;
+    private List<TeacherDto>? _teachers;
+    private List<AcademicYearDto>? _years;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tResult = await TeacherService.GetAllAsync(1, 1000);
+        _teachers = tResult?.Data;
+
+        var yResult = await AcademicYearService.GetAllAsync();
+        _years = yResult?.Data;
+
+        var classResult = await ClassService.GetByIdAsync(Id);
+        if (classResult?.Data == null)
+        {
+            Snackbar.Add("Class not found", Severity.Error);
+            Navigation.NavigateTo("/admin/classes");
+            return;
+        }
+
+        _dto = new UpdateClassDto
+        {
+            Name = classResult.Data.Name,
+            GradeLevel = classResult.Data.GradeLevel,
+            TeacherId = classResult.Data.TeacherId,
+            AcademicYearId = classResult.Data.AcademicYearId
+        };
+
+        _selectedTeacherId = classResult.Data.TeacherId;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_dto == null) return;
+
+        _dto.TeacherId = _selectedTeacherId;
+        var result = await ClassService.UpdateAsync(Id, _dto);
+
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Class updated!", Severity.Success);
+            Navigation.NavigateTo("/admin/classes");
+        }
+        else
+        {
+            var message = result?.Message ?? "Failed to update class";
+            if (result?.Errors?.Count > 0)
+                message = string.Join(", ", result.Errors);
+            Snackbar.Add(message, Severity.Error);
+        }
+    }
+}

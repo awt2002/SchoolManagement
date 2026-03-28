@@ -1,0 +1,122 @@
+@page "/teacher/exams/{Id:guid}/scores"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Teacher")]
+@inject SMS.Blazor.Services.ExamHttpService ExamService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Enter Scores - SMS</PageTitle>
+
+<MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+           OnClick="@(() => Navigation.NavigateTo("/teacher/exams"))">
+    Back to Exams
+</MudButton>
+
+@if (_exam != null)
+{
+    <MudText Typo="Typo.h4" Class="mb-2 mt-2">@_exam.Name</MudText>
+    <MudText Typo="Typo.body1" Class="mb-4">Subject: @_exam.SubjectName — Max Score: @_exam.MaxScore</MudText>
+
+    @if (_students != null && _students.Count > 0)
+    {
+        <MudPaper Elevation="2" Class="pa-4">
+            @foreach (var student in _students)
+            {
+                var score = GetStudentScore(student.Id);
+                <MudGrid Class="mb-2">
+                    <MudItem xs="6">
+                        <MudText Class="mt-3">@student.FullName</MudText>
+                    </MudItem>
+                    <MudItem xs="4">
+                        <MudNumericField Value="@score" Label="Score" Variant="Variant.Outlined"
+                                         Min="0" Max="@_exam.MaxScore" T="decimal"
+                                         ValueChanged="@((decimal val) => SetStudentScore(student.Id, val))" />
+                    </MudItem>
+                </MudGrid>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@SaveScores">
+                Save Scores
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">No students found in this class.</MudAlert>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ExamDto? _exam;
+    private List<ClassStudentDto>? _students;
+    private Dictionary<Guid, decimal> _scores = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var examResult = await ExamService.GetByIdAsync(Id);
+            _exam = examResult?.Data;
+
+            var teacherResult = await TeacherService.GetMeAsync();
+            var teacher = teacherResult?.Data;
+
+            if (teacher?.ClassId != null)
+            {
+                var classResult = await ClassService.GetByIdAsync(teacher.ClassId.Value);
+                _students = classResult?.Data?.Students ?? new List<ClassStudentDto>();
+
+                // Load existing results
+                var resultsResponse = await ExamService.GetResultsAsync(Id);
+                if (resultsResponse?.Data != null)
+                {
+                    foreach (var r in resultsResponse.Data)
+                    {
+                        _scores[r.StudentId] = r.Score;
+                    }
+                }
+
+                foreach (var s in _students)
+                {
+                    if (!_scores.ContainsKey(s.Id))
+                        _scores[s.Id] = 0;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private decimal GetStudentScore(Guid studentId)
+    {
+        return _scores.GetValueOrDefault(studentId, 0);
+    }
+
+    private void SetStudentScore(Guid studentId, decimal value)
+    {
+        _scores[studentId] = value;
+    }
+
+    private async Task SaveScores()
+    {
+        var entries = new List<ExamScoreEntryDto>();
+        foreach (var (studentId, score) in _scores)
+        {
+            entries.Add(new ExamScoreEntryDto { StudentId = studentId, Score = score });
+        }
+
+        var dto = new BulkExamResultDto { Results = entries };
+        var result = await ExamService.CreateResultsAsync(Id, dto);
+
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Scores saved!", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed to save scores", Severity.Error);
+        }
+    }
+}

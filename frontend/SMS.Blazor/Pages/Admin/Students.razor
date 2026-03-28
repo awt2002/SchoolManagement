@@ -1,0 +1,144 @@
+@page "/admin/students"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Students - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Students</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="6" md="4">
+        <MudTextField @bind-Value="_search" Label="Search by name" Variant="Variant.Outlined"
+                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                      OnKeyUp="@HandleSearch" Immediate="true" />
+    </MudItem>
+    <MudItem xs="12" sm="3" md="2">
+        <MudSwitch Value="@_includeInactive" Label="Show Inactive" Color="Color.Primary"
+                   T="bool" ValueChanged="@OnIncludeInactiveChanged" />
+    </MudItem>
+    <MudItem xs="12" sm="3" md="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="@(() => Navigation.NavigateTo("/admin/students/create"))">
+            Add Student
+        </MudButton>
+    </MudItem>
+</MudGrid>
+
+@if (_students != null)
+{
+    <MudTable Items="@_students" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Date of Birth</MudTh>
+            <MudTh>Class</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FullName</MudTd>
+            <MudTd>@context.DateOfBirth</MudTd>
+            <MudTd>@context.ClassName</MudTd>
+            <MudTd>
+                @if (context.IsActive)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Active</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Inactive</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                               OnClick="@(() => Navigation.NavigateTo($"/admin/students/{context.Id}"))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => Navigation.NavigateTo($"/admin/students/{context.Id}/edit"))" />
+                @if (context.IsActive)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                   OnClick="@(() => DeactivateStudent(context.Id, context.FullName))" />
+                }
+                else
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.RestoreFromTrash" Size="Size.Small" Color="Color.Success"
+                                   OnClick="@(() => ReactivateStudent(context.Id))" />
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+
+    <MudPagination Count="@_totalPages" Selected="@_currentPage" SelectedChanged="@OnPageChanged" Class="mt-4" />
+}
+
+@code {
+    private List<StudentSummaryDto>? _students;
+    private string _search = string.Empty;
+    private bool _includeInactive;
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudents();
+    }
+
+    private async Task LoadStudents()
+    {
+        var result = await StudentService.GetAllAsync(_currentPage, 10, _search, null, null, _includeInactive, _includeInactive);
+        if (result != null)
+        {
+            _students = result.Data;
+            _totalPages = result.TotalPages > 0 ? result.TotalPages : 1;
+        }
+    }
+
+    private async Task HandleSearch(KeyboardEventArgs e)
+    {
+        _currentPage = 1;
+        await LoadStudents();
+    }
+
+    private async Task OnIncludeInactiveChanged(bool value)
+    {
+        _includeInactive = value;
+        _currentPage = 1;
+        await LoadStudents();
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadStudents();
+    }
+
+    private async Task DeactivateStudent(Guid id, string fullName)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Confirm Deactivation",
+            $"Are you sure you want to deactivate student '{fullName}'?",
+            yesText: "Yes",
+            cancelText: "No");
+
+        if (confirmed != true) return;
+
+        var result = await StudentService.DeleteAsync(id);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Student deactivated", Severity.Success);
+            await LoadStudents();
+        }
+    }
+
+    private async Task ReactivateStudent(Guid id)
+    {
+        var result = await StudentService.ReactivateAsync(id);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Student reactivated", Severity.Success);
+            await LoadStudents();
+        }
+    }
+}
