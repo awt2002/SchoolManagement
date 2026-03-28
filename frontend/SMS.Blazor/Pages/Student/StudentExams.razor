@@ -1,0 +1,66 @@
+@page "/student/exams"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Student")]
+@inject SMS.Blazor.Services.ExamHttpService ExamService
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+@inject NavigationManager Navigation
+
+<PageTitle>My Exams - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">My Exams</MudText>
+
+@if (_exams != null && _exams.Count > 0)
+{
+    <MudTable Items="@_exams" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Exam</MudTh>
+            <MudTh>Subject</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Max Score</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.SubjectName</MudTd>
+            <MudTd>@context.ExamDate</MudTd>
+            <MudTd>@context.MaxScore</MudTd>
+            <MudTd>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                           OnClick="@(() => Navigation.NavigateTo($"/student/exams/{context.Id}"))">
+                    View Result
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else if (_exams != null)
+{
+    <MudAlert Severity="Severity.Info">No exams available.</MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">Loading exams...</MudAlert>
+}
+
+@code {
+    private List<ExamDto>? _exams;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var profileResult = await StudentService.GetMyProfileAsync();
+            var classId = profileResult?.Data?.CurrentClassId;
+
+            if (classId.HasValue)
+            {
+                var result = await ExamService.GetAllAsync(classId: classId.Value);
+                _exams = result?.Data ?? new List<ExamDto>();
+            }
+            else
+            {
+                _exams = new List<ExamDto>();
+            }
+        }
+        catch { _exams = new List<ExamDto>(); }
+    }
+}

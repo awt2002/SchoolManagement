@@ -1,0 +1,106 @@
+@page "/teacher/exams/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Teacher")]
+@inject SMS.Blazor.Services.ExamHttpService ExamService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Exam - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Create Exam</MudText>
+
+@if (_subjects != null && _subjects.Count > 0)
+{
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_name" Label="Exam Name" Variant="Variant.Outlined" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_selectedSubjectId" Label="Subject" Variant="Variant.Outlined" T="Guid">
+                    @foreach (var s in _subjects)
+                    {
+                        <MudSelectItem Value="@s.Id">@s.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudDatePicker @bind-Date="_examDate" Label="Exam Date" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudNumericField @bind-Value="_maxScore" Label="Max Score" Variant="Variant.Outlined" Min="1" T="decimal" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudNumericField @bind-Value="_passingThreshold" Label="Passing Threshold (%)" Variant="Variant.Outlined" Min="0" Max="100" T="decimal" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Create">Create Exam</MudButton>
+                <MudButton Variant="Variant.Text" OnClick="@(() => Navigation.NavigateTo("/teacher/exams"))" Class="ml-2">Cancel</MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">No subjects found for your class. Please contact an admin.</MudAlert>
+}
+
+@code {
+    private List<ClassSubjectDto>? _subjects;
+    private string _name = string.Empty;
+    private Guid _selectedSubjectId;
+    private DateTime? _examDate = DateTime.Today;
+    private decimal _maxScore = 100;
+    private decimal _passingThreshold = 50;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var teacherResult = await TeacherService.GetMeAsync();
+            var teacher = teacherResult?.Data;
+
+            if (teacher?.ClassId != null)
+            {
+                var classResult = await ClassService.GetByIdAsync(teacher.ClassId.Value);
+                _subjects = classResult?.Data?.Subjects ?? new List<ClassSubjectDto>();
+
+                if (_subjects.Count > 0)
+                {
+                    _selectedSubjectId = _subjects[0].Id;
+                }
+            }
+        }
+        catch { }
+    }
+
+    private async Task Create()
+    {
+        if (string.IsNullOrEmpty(_name) || _selectedSubjectId == Guid.Empty || !_examDate.HasValue)
+        {
+            Snackbar.Add("Please fill in all required fields", Severity.Warning);
+            return;
+        }
+
+        var dto = new CreateExamDto
+        {
+            Name = _name,
+            SubjectId = _selectedSubjectId,
+            ExamDate = DateOnly.FromDateTime(_examDate.Value),
+            MaxScore = _maxScore,
+            PassingThreshold = _passingThreshold
+        };
+
+        var result = await ExamService.CreateAsync(dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Exam created!", Severity.Success);
+            Navigation.NavigateTo("/teacher/exams");
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed to create exam", Severity.Error);
+        }
+    }
+}

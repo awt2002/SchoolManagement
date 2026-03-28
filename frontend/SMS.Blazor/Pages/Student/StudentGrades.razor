@@ -1,0 +1,76 @@
+@page "/student/grades"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Student")]
+@inject SMS.Blazor.Services.GradeHttpService GradeService
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+
+<PageTitle>My Grades - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">My Grades</MudText>
+
+@if (_gradeSummary != null)
+{
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Primary">@_gradeSummary.Gpa.ToString("F2")</MudText>
+        <MudText Typo="Typo.body1" Align="Align.Center">Overall GPA</MudText>
+    </MudPaper>
+
+    @if (_gradeSummary.SubjectAverages.Count > 0)
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">Subject Averages</MudText>
+        <MudTable Items="@_gradeSummary.SubjectAverages" Hover="true" Elevation="2">
+            <HeaderContent>
+                <MudTh>Subject</MudTh>
+                <MudTh>Weighted Average</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.SubjectName</MudTd>
+                <MudTd>@context.WeightedAverage.ToString("F2")</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+
+    @if (_grades != null && _grades.Count > 0)
+    {
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">Detailed Grades</MudText>
+        <MudTable Items="@_grades" Hover="true" Elevation="2">
+            <HeaderContent>
+                <MudTh>Subject</MudTh>
+                <MudTh>Category</MudTh>
+                <MudTh>Score</MudTh>
+                <MudTh>Weighted Contribution</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.SubjectName</MudTd>
+                <MudTd>@context.CategoryName</MudTd>
+                <MudTd>@context.Score</MudTd>
+                <MudTd>@context.WeightedContribution.ToString("F2")</MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+}
+else
+{
+    <MudAlert Severity="Severity.Info">Loading grades...</MudAlert>
+}
+
+@code {
+    private GradeSummaryDto? _gradeSummary;
+    private List<GradeDto>? _grades;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var profileResult = await StudentService.GetMyProfileAsync();
+            if (profileResult?.Data != null)
+            {
+                var summaryResult = await GradeService.GetSummaryAsync(profileResult.Data.Id);
+                _gradeSummary = summaryResult?.Data;
+
+                var gradesResult = await GradeService.GetAllAsync(studentId: profileResult.Data.Id);
+                _grades = gradesResult?.Data;
+            }
+        }
+        catch { }
+    }
+}

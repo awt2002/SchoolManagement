@@ -1,0 +1,84 @@
+@page "/teacher/attendance/history"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Teacher")]
+@inject SMS.Blazor.Services.AttendanceHttpService AttendanceService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject SMS.Blazor.Auth.TokenService TokenService
+@inject ISnackbar Snackbar
+@using System.IdentityModel.Tokens.Jwt
+
+<PageTitle>Attendance History - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Attendance History</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" md="4">
+        <MudDatePicker @bind-Date="_fromDate" Label="From Date" Variant="Variant.Outlined" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudDatePicker @bind-Date="_toDate" Label="To Date" Variant="Variant.Outlined" />
+    </MudItem>
+    <MudItem xs="12" md="4" Class="d-flex align-end">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@LoadRecords">Filter</MudButton>
+    </MudItem>
+</MudGrid>
+
+@if (_records != null && _records.Count > 0)
+{
+    <MudTable Items="@_records" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Student</MudTh>
+            <MudTh>Absence Date</MudTh>
+            <MudTh>Recorded By</MudTh>
+            <MudTh>Recorded At</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.StudentName</MudTd>
+            <MudTd>@context.AbsenceDate</MudTd>
+            <MudTd>@context.RecordedByName</MudTd>
+            <MudTd>@context.RecordedAt.ToString("g")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else if (_records != null)
+{
+    <MudAlert Severity="Severity.Info">No records found for the selected date range.</MudAlert>
+}
+
+@code {
+    private Guid _classId;
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private List<AttendanceRecordDto>? _records;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+            var token = handler.ReadJwtToken(TokenService.AccessToken);
+            var userIdClaim = token.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier || c.Type == "sub");
+
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                var teachersResult = await TeacherService.GetAllAsync(1, 100);
+                var teacher = teachersResult?.Data?.FirstOrDefault(t => t.UserId == userId);
+
+                if (teacher?.ClassId != null)
+                {
+                    _classId = teacher.ClassId.Value;
+                    await LoadRecords();
+                }
+            }
+        }
+        catch { }
+    }
+
+    private async Task LoadRecords()
+    {
+        DateOnly? from = _fromDate.HasValue ? DateOnly.FromDateTime(_fromDate.Value) : null;
+        DateOnly? to = _toDate.HasValue ? DateOnly.FromDateTime(_toDate.Value) : null;
+
+        var result = await AttendanceService.GetAllAsync(_classId, null, from, to);
+        _records = result?.Data ?? new List<AttendanceRecordDto>();
+    }
+}

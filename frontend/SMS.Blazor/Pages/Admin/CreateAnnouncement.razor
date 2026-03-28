@@ -1,0 +1,57 @@
+@page "/admin/announcements/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.AnnouncementHttpService AnnouncementService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Announcement - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Create School-Wide Announcement</MudText>
+
+<MudPaper Elevation="2" Class="pa-4">
+    <MudGrid>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_title" Label="Title" Variant="Variant.Outlined" Required="true" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_body" Label="Body" Variant="Variant.Outlined" Lines="6" Required="true" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@Create">Post Announcement</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => Navigation.NavigateTo("/announcements"))" Class="ml-2">Cancel</MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    private string _title = string.Empty;
+    private string _body = string.Empty;
+
+    private async Task Create()
+    {
+        if (string.IsNullOrEmpty(_title) || string.IsNullOrEmpty(_body))
+        {
+            Snackbar.Add("Title and body are required", Severity.Warning);
+            return;
+        }
+
+        var dto = new CreateAnnouncementDto
+        {
+            Title = _title,
+            Body = _body,
+            Scope = SMS.Domain.Enums.AnnouncementScope.SchoolWide,
+            ClassId = null
+        };
+
+        var result = await AnnouncementService.CreateAsync(dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Announcement posted!", Severity.Success);
+            Navigation.NavigateTo("/announcements");
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed to create announcement", Severity.Error);
+        }
+    }
+}

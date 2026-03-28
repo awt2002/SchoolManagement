@@ -1,0 +1,13 @@
+@page "/unauthorized"
+
+<PageTitle>Unauthorized - SMS</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudAlert Severity="Severity.Error">
+        <MudText Typo="Typo.h5">Access Denied</MudText>
+        <MudText>You do not have permission to access this page.</MudText>
+    </MudAlert>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard" Class="mt-4">
+        Go to Dashboard
+    </MudButton>
+</MudContainer>

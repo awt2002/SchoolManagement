@@ -1,0 +1,82 @@
+@page "/admin/classes/create"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject SMS.Blazor.Services.AcademicYearHttpService AcademicYearService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Create Class - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Create Class</MudText>
+
+<MudPaper Elevation="2" Class="pa-6">
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_dto.Name" Label="Class Name" Variant="Variant.Outlined" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudNumericField @bind-Value="_dto.GradeLevel" Label="Grade Level (1-12)"
+                             Variant="Variant.Outlined" Min="1" Max="12" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect @bind-Value="_selectedTeacherId" Label="Teacher (Optional)" Variant="Variant.Outlined"
+                       T="Guid?" Clearable="true">
+                @if (_teachers != null)
+                {
+                    @foreach (var t in _teachers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)t.Id)">@t.FullName</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect @bind-Value="_dto.AcademicYearId" Label="Academic Year" Variant="Variant.Outlined" T="Guid" Strict="true">
+                @if (_years != null)
+                {
+                    @foreach (var y in _years)
+                    {
+                        <MudSelectItem T="Guid" Value="@y.Id">@y.Name @(y.IsActive ? "(Active)" : "")</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@HandleSubmit">Create</MudButton>
+    <MudButton Variant="Variant.Outlined" Class="mt-4 ml-2"
+               OnClick="@(() => Navigation.NavigateTo("/admin/classes"))">Cancel</MudButton>
+</MudPaper>
+
+@code {
+    private CreateClassDto _dto = new();
+    private Guid? _selectedTeacherId;
+    private List<TeacherDto>? _teachers;
+    private List<AcademicYearDto>? _years;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tResult = await TeacherService.GetAllAsync(1, 100);
+        _teachers = tResult?.Data;
+        var yResult = await AcademicYearService.GetAllAsync();
+        _years = yResult?.Data;
+        var activeYear = _years?.FirstOrDefault(y => y.IsActive);
+        if (activeYear != null) _dto.AcademicYearId = activeYear.Id;
+    }
+
+    private async Task HandleSubmit()
+    {
+        _dto.TeacherId = _selectedTeacherId;
+        var result = await ClassService.CreateAsync(_dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Class created!", Severity.Success);
+            Navigation.NavigateTo("/admin/classes");
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed", Severity.Error);
+        }
+    }
+}

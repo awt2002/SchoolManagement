@@ -1,0 +1,141 @@
+@page "/teacher/grades/{SubjectId:guid}"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Teacher")]
+@inject SMS.Blazor.Services.GradeHttpService GradeService
+@inject SMS.Blazor.Services.SubjectHttpService SubjectService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject SMS.Blazor.Auth.TokenService TokenService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@using System.IdentityModel.Tokens.Jwt
+
+<PageTitle>Grade Entry - SMS</PageTitle>
+
+<MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+           OnClick="@(() => Navigation.NavigateTo("/teacher/grades"))">
+    Back to Grades
+</MudButton>
+
+@if (_subject != null)
+{
+    <MudText Typo="Typo.h4" Class="mb-4 mt-2">Grades — @_subject.Name</MudText>
+
+    @if (_subject.GradeCategories.Count > 0 && _students != null)
+    {
+        @foreach (var category in _subject.GradeCategories)
+        {
+            <MudPaper Elevation="2" Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6">@category.Name (@category.Weight%)</MudText>
+
+                @foreach (var student in _students)
+                {
+                    var key = $"{student.Id}_{category.Id}";
+                    var score = GetScore(key);
+                    <MudGrid Class="mb-1">
+                        <MudItem xs="6">
+                            <MudText Class="mt-3">@student.FullName</MudText>
+                        </MudItem>
+                        <MudItem xs="4">
+                            <MudNumericField Value="@score" Label="Score" Variant="Variant.Outlined" Min="0" Max="100" T="decimal"
+                                             ValueChanged="@((decimal val) => SetScore(key, val))" />
+                        </MudItem>
+                    </MudGrid>
+                }
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" Class="mt-2"
+                           OnClick="@(() => SaveCategory(category.Id))">
+                    Save @category.Name
+                </MudButton>
+            </MudPaper>
+        }
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Info">No grade categories configured for this subject.</MudAlert>
+    }
+}
+
+@code {
+    [Parameter] public Guid SubjectId { get; set; }
+
+    private SubjectDto? _subject;
+    private List<ClassStudentDto>? _students;
+    private Dictionary<string, decimal> _scores = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var subjectResult = await SubjectService.GetByIdAsync(SubjectId);
+            _subject = subjectResult?.Data;
+
+            var handler = new JwtSecurityTokenHandler();
+            var token = handler.ReadJwtToken(TokenService.AccessToken);
+            var userIdClaim = token.Claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier || c.Type == "sub");
+
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                var teachersResult = await TeacherService.GetAllAsync(1, 100);
+                var teacher = teachersResult?.Data?.FirstOrDefault(t => t.UserId == userId);
+
+                if (teacher?.ClassId != null)
+                {
+                    var classResult = await ClassService.GetByIdAsync(teacher.ClassId.Value);
+                    _students = classResult?.Data?.Students ?? new List<ClassStudentDto>();
+
+                    // Load existing grades
+                    if (_subject != null)
+                    {
+                        foreach (var student in _students)
+                        {
+                            var gradesResult = await GradeService.GetAllAsync(SubjectId, student.Id);
+                            if (gradesResult?.Data != null)
+                            {
+                                foreach (var g in gradesResult.Data)
+                                {
+                                    var key = $"{student.Id}_{g.GradeCategoryId}";
+                                    _scores[key] = g.Score;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+    }
+
+    private decimal GetScore(string key)
+    {
+        return _scores.GetValueOrDefault(key, 0);
+    }
+
+    private void SetScore(string key, decimal value)
+    {
+        _scores[key] = value;
+    }
+
+    private async Task SaveCategory(Guid categoryId)
+    {
+        if (_students == null) return;
+
+        foreach (var student in _students)
+        {
+            var key = $"{student.Id}_{categoryId}";
+            var score = _scores.GetValueOrDefault(key, 0);
+
+            if (score > 0)
+            {
+                var dto = new CreateGradeDto
+                {
+                    StudentId = student.Id,
+                    GradeCategoryId = categoryId,
+                    Score = score
+                };
+                await GradeService.CreateOrUpdateAsync(dto);
+            }
+        }
+
+        Snackbar.Add("Grades saved!", Severity.Success);
+    }
+}

@@ -1,0 +1,73 @@
+@page "/teacher/exams"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Teacher")]
+@inject SMS.Blazor.Services.ExamHttpService ExamService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Exams - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">My Exams</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-4"
+           OnClick="@(() => Navigation.NavigateTo("/teacher/exams/create"))">
+    Create Exam
+</MudButton>
+
+@if (_exams != null && _exams.Count > 0)
+{
+    <MudTable Items="@_exams" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Subject</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Max Score</MudTh>
+            <MudTh>Passing %</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.SubjectName</MudTd>
+            <MudTd>@context.ExamDate</MudTd>
+            <MudTd>@context.MaxScore</MudTd>
+            <MudTd>@context.PassingThreshold%</MudTd>
+            <MudTd>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                           OnClick="@(() => Navigation.NavigateTo($"/teacher/exams/{context.Id}/scores"))">
+                    Enter Scores
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else if (_exams != null)
+{
+    <MudAlert Severity="Severity.Info">No exams created yet.</MudAlert>
+}
+
+@code {
+    private List<ExamDto>? _exams;
+    private Guid _classId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var teacherResult = await TeacherService.GetMeAsync();
+            var teacher = teacherResult?.Data;
+
+            if (teacher?.ClassId != null)
+            {
+                _classId = teacher.ClassId.Value;
+                var result = await ExamService.GetAllAsync(classId: _classId);
+                _exams = result?.Data ?? new List<ExamDto>();
+            }
+            else
+            {
+                _exams = new List<ExamDto>();
+            }
+        }
+        catch { _exams = new List<ExamDto>(); }
+    }
+}

@@ -1,0 +1,88 @@
+@page "/admin/attendance"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.AttendanceHttpService AttendanceService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Attendance - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Attendance Records</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" md="4">
+        <MudSelect Value="@_selectedClassId" Label="Filter by Class" Variant="Variant.Outlined"
+                   T="Guid?" Clearable="true" ValueChanged="@OnClassFilterChanged">
+            @if (_classes != null)
+            {
+                @foreach (var c in _classes)
+                {
+                    <MudSelectItem Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                }
+            }
+        </MudSelect>
+    </MudItem>
+</MudGrid>
+
+@if (_records != null)
+{
+    <MudTable Items="@_records" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Student</MudTh>
+            <MudTh>Class</MudTh>
+            <MudTh>Absence Date</MudTh>
+            <MudTh>Recorded By</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.StudentName</MudTd>
+            <MudTd>@context.ClassName</MudTd>
+            <MudTd>@context.AbsenceDate</MudTd>
+            <MudTd>@context.RecordedByName</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => Delete(context.Id, context.StudentName, context.AbsenceDate))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<AttendanceRecordDto>? _records;
+    private List<ClassDto>? _classes;
+    private Guid? _selectedClassId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var classResult = await ClassService.GetAllAsync();
+        _classes = classResult?.Data;
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        var result = await AttendanceService.GetAllAsync(_selectedClassId);
+        _records = result?.Data;
+    }
+
+    private async Task OnClassFilterChanged(Guid? value)
+    {
+        _selectedClassId = value;
+        await LoadData();
+    }
+
+    private async Task Delete(Guid id, string studentName, DateOnly absenceDate)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Confirm Deletion",
+            $"Delete absence record for '{studentName}' on {absenceDate}?",
+            yesText: "Yes",
+            cancelText: "No");
+
+        if (confirmed != true) return;
+
+        await AttendanceService.DeleteAsync(id);
+        Snackbar.Add("Record deleted", Severity.Success);
+        await LoadData();
+    }
+}

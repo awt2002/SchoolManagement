@@ -1,0 +1,85 @@
+@page "/admin/students/{Id:guid}/edit"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.StudentHttpService StudentService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Edit Student - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Edit Student</MudText>
+
+@if (_dto != null)
+{
+    <MudPaper Elevation="2" Class="pa-6">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.FullName" Label="Full Name" Variant="Variant.Outlined" MaxLength="100" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudDatePicker @bind-Date="_dateOfBirth" Label="Date of Birth" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_dto.Address" Label="Address" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.ParentName" Label="Parent Name" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.ParentEmail" Label="Parent Email" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.ParentPhone" Label="Parent Phone Number" Variant="Variant.Outlined"
+                              InputType="InputType.Telephone" />
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@HandleSubmit">
+            Save Changes
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Class="mt-4 ml-2"
+                   OnClick="@(() => Navigation.NavigateTo($"/admin/students/{Id}"))">Cancel</MudButton>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private UpdateStudentDto? _dto;
+    private DateTime? _dateOfBirth;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await StudentService.GetByIdAsync(Id);
+        if (result?.Data != null)
+        {
+            var s = result.Data;
+            _dto = new UpdateStudentDto
+            {
+                FullName = s.FullName,
+                Address = s.Address,
+                ParentName = s.ParentName,
+                ParentEmail = s.ParentEmail,
+                ParentPhone = s.ParentPhone
+            };
+            _dateOfBirth = s.DateOfBirth.ToDateTime(TimeOnly.MinValue);
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_dto == null) return;
+
+        if (_dateOfBirth.HasValue)
+            _dto.DateOfBirth = DateOnly.FromDateTime(_dateOfBirth.Value);
+
+        var result = await StudentService.UpdateAsync(Id, _dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Student updated!", Severity.Success);
+            Navigation.NavigateTo($"/admin/students/{Id}");
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed to update", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,33 @@
+﻿@using System.Security.Claims
+
+<MudNavMenu>
+    <MudNavLink Href="/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    <AuthorizeView Roles="Admin">
+        <MudNavLink Href="/admin/students" Icon="@Icons.Material.Filled.People">Students</MudNavLink>
+        <MudNavLink Href="/admin/teachers" Icon="@Icons.Material.Filled.School">Teachers</MudNavLink>
+        <MudNavLink Href="/admin/classes" Icon="@Icons.Material.Filled.Class">Classes</MudNavLink>
+        <MudNavLink Href="/admin/academic-years" Icon="@Icons.Material.Filled.CalendarMonth">Academic Years</MudNavLink>
+        <MudNavLink Href="/admin/attendance" Icon="@Icons.Material.Filled.FactCheck">Attendance</MudNavLink>
+        <MudNavLink Href="/admin/grades/audit" Icon="@Icons.Material.Filled.History">Grade Audit Log</MudNavLink>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Teacher">
+        <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">My Profile</MudNavLink>
+        <MudNavLink Href="/teacher/my-class" Icon="@Icons.Material.Filled.Class">My Class</MudNavLink>
+        <MudNavLink Href="/teacher/attendance" Icon="@Icons.Material.Filled.FactCheck">Attendance</MudNavLink>
+        <MudNavLink Href="/teacher/grades" Icon="@Icons.Material.Filled.Grade">Grades</MudNavLink>
+        <MudNavLink Href="/teacher/exams" Icon="@Icons.Material.Filled.Quiz">Exams</MudNavLink>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Student">
+        <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">My Profile</MudNavLink>
+        <MudNavLink Href="/student/attendance" Icon="@Icons.Material.Filled.FactCheck">Attendance</MudNavLink>
+        <MudNavLink Href="/student/grades" Icon="@Icons.Material.Filled.Grade">Grades</MudNavLink>
+        <MudNavLink Href="/student/exams" Icon="@Icons.Material.Filled.Quiz">Exams</MudNavLink>
+    </AuthorizeView>
+
+    <MudNavLink Href="/announcements" Icon="@Icons.Material.Filled.Announcement">Announcements</MudNavLink>
+</MudNavMenu>

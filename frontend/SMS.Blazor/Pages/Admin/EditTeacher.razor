@@ -1,0 +1,88 @@
+@page "/admin/teachers/{Id:guid}/edit"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.TeacherHttpService TeacherService
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Edit Teacher - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Edit Teacher</MudText>
+
+@if (_dto != null)
+{
+    <MudPaper Elevation="2" Class="pa-6">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.FullName" Label="Full Name" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.Email" Label="Email" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_dto.PhoneNumber" Label="Phone Number" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="_selectedClassId" Label="Assign Class" Variant="Variant.Outlined"
+                           T="Guid?" Clearable="true">
+                    <MudSelectItem Value="@((Guid?)null)">None (Unassigned)</MudSelectItem>
+                    @if (_classes != null)
+                    {
+                        @foreach (var c in _classes)
+                        {
+                            <MudSelectItem Value="@((Guid?)c.Id)">@c.Name</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="@HandleSubmit">
+            Save Changes
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Class="mt-4 ml-2"
+                   OnClick="@(() => Navigation.NavigateTo("/admin/teachers"))">Cancel</MudButton>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    private UpdateTeacherDto? _dto;
+    private Guid? _selectedClassId;
+    private List<ClassDto>? _classes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var classResult = await ClassService.GetAllAsync();
+        _classes = classResult?.Data;
+
+        var result = await TeacherService.GetByIdAsync(Id);
+        if (result?.Data != null)
+        {
+            _dto = new UpdateTeacherDto
+            {
+                FullName = result.Data.FullName,
+                Email = result.Data.Email,
+                PhoneNumber = result.Data.PhoneNumber,
+                ClassId = result.Data.ClassId
+            };
+            _selectedClassId = result.Data.ClassId;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (_dto == null) return;
+        _dto.ClassId = _selectedClassId;
+        var result = await TeacherService.UpdateAsync(Id, _dto);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Teacher updated!", Severity.Success);
+            Navigation.NavigateTo("/admin/teachers");
+        }
+        else
+        {
+            Snackbar.Add(result?.Message ?? "Failed", Severity.Error);
+        }
+    }
+}

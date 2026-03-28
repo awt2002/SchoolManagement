@@ -1,0 +1,183 @@
+@page "/dashboard"
+@page "/"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject SMS.Blazor.Services.DashboardHttpService DashboardService
+@inject NavigationManager Navigation
+@using System.Security.Claims
+
+<PageTitle>Dashboard - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+
+<AuthorizeView Roles="Admin">
+    @if (_adminDashboard != null)
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/admin/students"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Primary">@_adminDashboard.TotalStudents</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Total Students</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/admin/teachers"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Secondary">@_adminDashboard.TotalTeachers</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Total Teachers</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/admin/classes"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Info">@_adminDashboard.TotalClasses</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Total Classes</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/admin/attendance"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Warning">@_adminDashboard.AbsencesToday</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Absences Today</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">Recent Announcements</MudText>
+        <MudList T="DashboardAnnouncementDto">
+            @foreach (var a in _adminDashboard.RecentAnnouncements)
+            {
+                <MudListItem OnClick="@(() => Navigation.NavigateTo($"/announcements/{a.Id}"))">
+                    <MudText Style="@(a.IsRead ? "" : "font-weight: bold")">@a.Title</MudText>
+                    <MudText Typo="Typo.caption">@a.CreatedAt.ToString("g")</MudText>
+                </MudListItem>
+            }
+        </MudList>
+    }
+</AuthorizeView>
+
+<AuthorizeView Roles="Teacher">
+    @if (_teacherDashboard != null)
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/teacher/my-class"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Primary">@_teacherDashboard.ClassStudentCount</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Students in My Class</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/teacher/attendance"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Warning">@_teacherDashboard.AbsencesTodayInClass</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Absences Today</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/announcements"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Info">@_teacherDashboard.UnreadAnnouncements</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Unread Announcements</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.h6" Class="mt-6 mb-2">Upcoming Exams</MudText>
+        <MudSimpleTable>
+            <thead>
+                <tr><th>Exam</th><th>Subject</th><th>Date</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var e in _teacherDashboard.UpcomingExams)
+                {
+                    <tr><td>@e.Name</td><td>@e.SubjectName</td><td>@e.ExamDate</td></tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</AuthorizeView>
+
+<AuthorizeView Roles="Student">
+    @if (_studentDashboard != null)
+    {
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/student/attendance"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Warning">@_studentDashboard.TotalAbsencesThisYear</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Total Absences</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/student/grades"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Primary">@_studentDashboard.Gpa.ToString("F2")</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">GPA</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudCard Class="cursor-pointer" @onclick='@(() => Navigation.NavigateTo("/announcements"))'>
+                    <MudCardContent>
+                        <MudText Typo="Typo.h3" Align="Align.Center" Color="Color.Info">@_studentDashboard.UnreadAnnouncements</MudText>
+                        <MudText Typo="Typo.body1" Align="Align.Center">Unread Announcements</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        </MudGrid>
+
+        @if (_studentDashboard.NextExam != null)
+        {
+            <MudText Typo="Typo.h6" Class="mt-6 mb-2">Next Exam</MudText>
+            <MudCard>
+                <MudCardContent>
+                    <MudText>@_studentDashboard.NextExam.Name - @_studentDashboard.NextExam.SubjectName</MudText>
+                    <MudText Typo="Typo.caption">Date: @_studentDashboard.NextExam.ExamDate</MudText>
+                </MudCardContent>
+            </MudCard>
+        }
+    }
+</AuthorizeView>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private AdminDashboardDto? _adminDashboard;
+    private TeacherDashboardDto? _teacherDashboard;
+    private StudentDashboardDto? _studentDashboard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthState;
+            var role = authState.User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (role == "Admin")
+            {
+                var result = await DashboardService.GetAdminDashboardAsync();
+                _adminDashboard = result?.Data;
+            }
+            else if (role == "Teacher")
+            {
+                var result = await DashboardService.GetTeacherDashboardAsync();
+                _teacherDashboard = result?.Data;
+            }
+            else if (role == "Student")
+            {
+                var result = await DashboardService.GetStudentDashboardAsync();
+                _studentDashboard = result?.Data;
+            }
+        }
+        catch { }
+    }
+}

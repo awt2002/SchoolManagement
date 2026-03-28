@@ -1,0 +1,78 @@
+@page "/admin/classes"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+@inject SMS.Blazor.Services.ClassHttpService ClassService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Classes - SMS</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Classes</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-4"
+           OnClick="@(() => Navigation.NavigateTo("/admin/classes/create"))">Add Class</MudButton>
+
+@if (_classes != null)
+{
+    <MudTable Items="@_classes" Hover="true" Elevation="2">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Grade Level</MudTh>
+            <MudTh>Teacher</MudTh>
+            <MudTh>Students</MudTh>
+            <MudTh>Academic Year</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.GradeLevel</MudTd>
+            <MudTd>@(context.TeacherName ?? "Not Assigned")</MudTd>
+            <MudTd>@context.StudentCount</MudTd>
+            <MudTd>@context.AcademicYearName</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                               OnClick="@(() => Navigation.NavigateTo($"/admin/classes/{context.Id}/edit"))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                               OnClick="@(() => Navigation.NavigateTo($"/admin/classes/{context.Id}"))" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(() => DeleteClass(context.Id, context.Name))" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<ClassDto>? _classes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await ClassService.GetAllAsync();
+        _classes = result?.Data;
+    }
+
+    private async Task DeleteClass(Guid id, string className)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Confirm Deletion",
+            $"Are you sure you want to delete class '{className}'?",
+            yesText: "Yes",
+            cancelText: "No");
+
+        if (confirmed != true) return;
+
+        var result = await ClassService.DeleteAsync(id);
+        if (result?.Success == true)
+        {
+            Snackbar.Add("Class deleted", Severity.Success);
+            var reload = await ClassService.GetAllAsync();
+            _classes = reload?.Data;
+        }
+        else
+        {
+            var message = result?.Message ?? "Failed to delete class";
+            if (result?.Errors?.Count > 0)
+                message = string.Join(", ", result.Errors);
+            Snackbar.Add(message, Severity.Error);
+        }
+    }
+}
